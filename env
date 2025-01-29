@@ -1,14 +1,1 @@
-# OpenAI API key (Keep this private and secure)
-OPENAI_API_KEY=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
 
-# URL for the database (Ensure this matches the full database connection string)
-DATABASE_URL=https://backendtest-production-9649.up.railway.app
-
-# Secret key for signing JWT tokens (Use a strong, randomly generated key)
-JWT_SECRET=StrongSuperSecretKeyForJWT
-
-# Port for the application to run on (Ensure this is compatible with Railway)
-PORT=3000
-
-# Enable CORS for frontend requests (Optional: adjust for your setup)
-CORS_ORIGIN=https://elevateseo.netlify.app
