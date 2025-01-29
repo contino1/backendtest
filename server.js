@@ -1,83 +1,82 @@
-const express = require("express");
-const { Configuration, OpenAIApi } = require("openai");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-
-require("dotenv").config(); // Load environment variables
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const { OpenAI } = require('openai');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// Configure OpenAI
-const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY, // Ensure your OpenAI key is set in Railway
-});
-const openai = new OpenAIApi(configuration);
-
-// Route to register a user (placeholder, assuming your existing logic handles this)
-app.post("/api/register", async (req, res) => {
-    try {
-        const { name, email, password, plan } = req.body;
-
-        // TODO: Add logic to save user to your database
-        res.status(200).json({ message: "User registered successfully!" });
-    } catch (error) {
-        console.error("Error registering user:", error.message);
-        res.status(500).json({ error: "Failed to register user" });
-    }
+// OpenAI Setup
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Route to log in a user (placeholder, assuming your existing logic handles this)
-app.post("/api/login", async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        // TODO: Add logic to authenticate user and generate a token
-        const token = "mock-token"; // Replace with your token logic
-        res.status(200).json({ message: "Login successful", token, plan: "Free" });
-    } catch (error) {
-        console.error("Error logging in user:", error.message);
-        res.status(500).json({ error: "Failed to log in user" });
-    }
+// ✅ **API Health Check**
+app.get('/api/status', (req, res) => {
+  res.status(200).json({ message: 'API is running!' });
 });
 
-// Route to generate SEO recommendations
-app.post("/api/generate-seo", async (req, res) => {
-    try {
-        const { businessName, website, services, location } = req.body;
+// **Mock Database (For Testing)**
+let users = [];
 
-        // Construct the prompt for OpenAI
-        const prompt = `
-            Business Name: ${businessName || "N/A"}
-            Website: ${website || "N/A"}
-            Services: ${services || "N/A"}
-            Location: ${location || "N/A"}
+// ✅ **User Registration**
+app.post('/api/register', (req, res) => {
+  const { name, email, password, plan } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
 
-            Based on this information, generate:
-            1. Five SEO target keywords.
-            2. Three suggested local SEO locations.
-            3. A brief SEO strategy to improve traffic and visibility.
-        `;
+  const userExists = users.find((user) => user.email === email);
+  if (userExists) {
+    return res.status(400).json({ error: 'User already exists' });
+  }
 
-        // Call OpenAI's API
-        const response = await openai.createChatCompletion({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-        });
-
-        const content = response.data.choices[0].message.content;
-
-        res.json({ recommendations: content });
-    } catch (error) {
-        console.error("Error generating SEO suggestions:", error.message);
-        res.status(500).json({ error: "Failed to generate SEO suggestions" });
-    }
+  const newUser = { id: users.length + 1, name, email, password, plan };
+  users.push(newUser);
+  res.status(201).json({ message: 'User registered successfully', user: newUser });
 });
 
-// Start the server
-const PORT = process.env.PORT || 3000;
+// ✅ **User Login**
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+  const user = users.find((u) => u.email === email && u.password === password);
+
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  res.status(200).json({ message: 'Login successful', user });
+});
+
+// ✅ **AI-Generated SEO Suggestions**
+app.post('/api/seo-suggestions', async (req, res) => {
+  const { website, businessType, targetLocation } = req.body;
+
+  if (!website) {
+    return res.status(400).json({ error: 'Website URL is required' });
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are an SEO expert providing high-quality recommendations.' },
+        { role: 'user', content: `Provide SEO strategy for ${businessType} in ${targetLocation}. Website: ${website}` }
+      ],
+    });
+
+    res.json({ suggestions: completion.choices[0].message.content });
+  } catch (error) {
+    res.status(500).json({ error: 'Error generating SEO suggestions', details: error.message });
+  }
+});
+
+// ✅ **Start the Server**
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
