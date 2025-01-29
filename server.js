@@ -104,6 +104,23 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 });
 
+// Profile route to save business information
+app.post('/api/profile', (req, res) => {
+    const { businessName, website } = req.body;
+
+    console.log('Profile save request received:', { businessName, website });
+
+    if (!businessName || !website) {
+        return res.status(400).json({ message: 'Business name and website are required' });
+    }
+
+    // Mock database save operation (replace with actual DB logic)
+    const profile = { id: 1, businessName, website };
+
+    // Simulate success response
+    res.json({ message: 'Profile saved successfully', profile });
+});
+
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
