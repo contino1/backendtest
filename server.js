@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import OpenAI from 'openai'; // Corrected import for OpenAI v4+
+import OpenAI from 'openai'; // Ensure OpenAI is correctly imported
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// OpenAI Setup
+// OpenAI Setup (Fixed)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
