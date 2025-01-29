@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const { OpenAI } = require('openai');
+const OpenAI = require('openai'); // Corrected OpenAI import
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,20 +11,20 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// OpenAI Setup
+// OpenAI Setup (Fixed)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ **API Health Check**
+// ✅ API Health Check
 app.get('/api/status', (req, res) => {
   res.status(200).json({ message: 'API is running!' });
 });
 
-// **Mock Database (For Testing)**
+// Mock Database (For Testing)
 let users = [];
 
-// ✅ **User Registration**
+// ✅ User Registration
 app.post('/api/register', (req, res) => {
   const { name, email, password, plan } = req.body;
   if (!email || !password) {
@@ -41,7 +41,7 @@ app.post('/api/register', (req, res) => {
   res.status(201).json({ message: 'User registered successfully', user: newUser });
 });
 
-// ✅ **User Login**
+// ✅ User Login
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const user = users.find((u) => u.email === email && u.password === password);
@@ -53,7 +53,7 @@ app.post('/api/login', (req, res) => {
   res.status(200).json({ message: 'Login successful', user });
 });
 
-// ✅ **AI-Generated SEO Suggestions**
+// ✅ AI-Generated SEO Suggestions
 app.post('/api/seo-suggestions', async (req, res) => {
   const { website, businessType, targetLocation } = req.body;
 
@@ -76,7 +76,7 @@ app.post('/api/seo-suggestions', async (req, res) => {
   }
 });
 
-// ✅ **Start the Server**
+// ✅ Start the Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
