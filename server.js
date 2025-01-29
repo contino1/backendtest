@@ -1,113 +1,129 @@
 import express from 'express';
 import cors from 'cors';
+import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
-import sqlite3 from 'sqlite3';
-import bcrypt from 'bcryptjs';
-import { OpenAI } from 'openai';
+import { Configuration, OpenAIApi } from 'openai';
 
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: 'https://elevateseo.netlify.app' }));
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET;
+const DATABASE_URL = process.env.DATABASE_URL;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY_SECRET;
 
-// Database Setup
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) console.error('Database connection error:', err);
-    else console.log('Connected to SQLite database');
+// Validate environment variables
+if (!JWT_SECRET || !OPENAI_API_KEY || !DATABASE_URL) {
+    console.error("Missing required environment variables.");
+    process.exit(1);
+}
+
+// Initialize OpenAI API client
+const openai = new OpenAIApi(
+    new Configuration({
+        apiKey: OPENAI_API_KEY,
+    })
+);
+
+// Middleware setup
+app.use(cors({ origin: 'https://elevateseo.netlify.app' }));  // Allow only your frontend domain
+app.use(bodyParser.json());
+
+// Mock database for demonstration purposes
+const users = [];
+
+// Routes
+
+// Status check route
+app.get('/api/status', (req, res) => {
+    res.json({ status: 'success', message: 'Server is running!' });
 });
 
-// Initialize OpenAI
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Register route
+app.post('/api/register', (req, res) => {
+    const { fullName, email, password, plan } = req.body;
 
-// **User Registration**
-app.post('/api/register', async (req, res) => {
-    const { name, email, password, plan } = req.body;
-
-    if (!name || !email || !password || !plan) {
-        return res.status(400).json({ status: 'error', message: 'All fields are required' });
+    if (!email || !password) {
+        return res.status(400).json({ status: 'error', message: 'Email and password are required.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const existingUser = users.find(user => user.email === email);
+    if (existingUser) {
+        return res.status(409).json({ status: 'error', message: 'User already exists.' });
+    }
 
-    db.run(
-        `INSERT INTO users (name, email, password, plan) VALUES (?, ?, ?, ?)`,
-        [name, email, hashedPassword, plan],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ status: 'error', message: 'User already exists' });
-            }
-            res.status(201).json({ status: 'success', message: 'User registered successfully' });
-        }
-    );
+    const newUser = { id: users.length + 1, fullName, email, password, plan };
+    users.push(newUser);
+
+    const token = jwt.sign({ id: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({ status: 'success', message: 'Registration successful.', token });
 });
 
-// **User Login**
+// Login route
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
 
-    db.get(`SELECT * FROM users WHERE email = ?`, [email], async (err, user) => {
-        if (err || !user) {
-            return res.status(401).json({ status: 'error', message: 'Invalid credentials' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ status: 'error', message: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ id: user.id, plan: user.plan }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.status(200).json({ status: 'success', message: 'Login successful', token });
-    });
-});
-
-// **Save Business Profile**
-app.post('/api/profile', (req, res) => {
-    const { userId, website, services, location, email, phone } = req.body;
-
-    if (!userId) return res.status(400).json({ status: 'error', message: 'User ID required' });
-
-    db.run(
-        `INSERT INTO profiles (userId, website, services, location, email, phone) VALUES (?, ?, ?, ?, ?, ?) 
-        ON CONFLICT(userId) DO UPDATE SET website = excluded.website, services = excluded.services, location = excluded.location, email = excluded.email, phone = excluded.phone`,
-        [userId, website, services, location, email, phone],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ status: 'error', message: 'Failed to save profile' });
-            }
-            res.status(200).json({ status: 'success', message: 'Profile saved successfully' });
-        }
-    );
-});
-
-// **Generate AI SEO Suggestions**
-app.post('/api/ai-suggestions', async (req, res) => {
-    const { businessType, services, location } = req.body;
-
-    if (!businessType && !services) {
-        return res.status(400).json({ status: 'error', message: 'At least business type or services must be provided' });
+    const user = users.find(u => u.email === email && u.password === password);
+    if (!user) {
+        return res.status(401).json({ status: 'error', message: 'Invalid email or password.' });
     }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({ status: 'success', message: 'Login successful.', token });
+});
+
+// Save profile route
+app.post('/api/profile/save', (req, res) => {
+    const { token, profileData } = req.body;
 
     try {
-        const aiResponse = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: `Generate SEO strategies for a ${businessType} business offering ${services} in ${location}.` }],
-            temperature: 0.7,
-        });
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = users.find(u => u.id === decoded.id);
 
-        res.status(200).json({ status: 'success', suggestions: aiResponse.choices[0].message.content });
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found.' });
+        }
+
+        user.profile = profileData;
+
+        res.json({ status: 'success', message: 'Profile saved successfully.' });
     } catch (error) {
-        console.error('AI API error:', error);
-        res.status(500).json({ status: 'error', message: 'Failed to generate AI suggestions' });
+        res.status(401).json({ status: 'error', message: 'Unauthorized or invalid token.' });
     }
 });
 
-// **Verify Server is Running**
-app.get('/api/status', (req, res) => {
-    res.json({ status: 'success', message: 'Server is running' });
+// Get AI suggestions route
+app.post('/api/ai/suggestions', async (req, res) => {
+    const { token, businessDetails } = req.body;
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = users.find(u => u.id === decoded.id);
+
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found.' });
+        }
+
+        const prompt = `Generate SEO suggestions for the following business details: ${JSON.stringify(businessDetails)}`;
+        
+        const completion = await openai.createChatCompletion({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+        });
+
+        const suggestions = completion.data.choices[0].message.content;
+
+        res.json({ status: 'success', message: 'AI suggestions generated.', suggestions });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ status: 'error', message: 'Failed to generate AI suggestions.' });
+    }
 });
 
-// **Start Server**
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
