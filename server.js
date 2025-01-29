@@ -1,79 +1,64 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-const { Sequelize, DataTypes } = require('sequelize');
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const { Configuration, OpenAIApi } = require("openai"); // Import OpenAI API
+const db = require("./database"); // Your database connection file
+const authMiddleware = require("./middleware/auth"); // Authentication middleware
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+app.use(bodyParser.json());
 
-// Database setup
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: './database.sqlite'
-});
+const openai = new OpenAIApi(new Configuration({
+    apiKey: process.env.OPENAI_API_KEY, // Add your OpenAI API Key in .env
+}));
 
-// User model
-const User = sequelize.define('User', {
-    name: { type: DataTypes.STRING, allowNull: false },
-    email: { type: DataTypes.STRING, allowNull: false, unique: true },
-    password: { type: DataTypes.STRING, allowNull: false },
-    plan: { type: DataTypes.ENUM('Free', 'Growth', 'Premier'), defaultValue: 'Free' }
-});
-
-sequelize.sync();
-
-const JWT_SECRET = 'your_jwt_secret';
-
-function authenticateToken(req, res, next) {
-    const token = req.header('Authorization');
-    if (!token) return res.status(401).send('Access Denied');
-
+// API to generate AI-based SEO recommendations
+app.post("/api/generate-seo", authMiddleware, async (req, res) => {
     try {
-        const verified = jwt.verify(token, JWT_SECRET);
-        req.user = verified;
-        next();
-    } catch (err) {
-        res.status(400).send('Invalid Token');
+        const { businessName, website, services, location } = req.body;
+
+        // Store the business profile in the database
+        await db.run(
+            "INSERT INTO users_profiles (user_id, businessName, website, services, location) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET businessName = excluded.businessName, website = excluded.website, services = excluded.services, location = excluded.location",
+            [req.user.id, businessName, website, services, location]
+        );
+
+        // Create an AI prompt for SEO keyword & strategy suggestions
+        const aiPrompt = `
+            Business Name: ${businessName || "N/A"}
+            Website: ${website || "N/A"}
+            Services: ${services || "N/A"}
+            Location: ${location || "N/A"}
+
+            Based on the above business information, generate:
+            - 5 target keywords for SEO
+            - 3 suggested locations for local SEO
+            - A brief SEO strategy to increase traffic and visibility.
+        `;
+
+        const aiResponse = await openai.createCompletion({
+            model: "text-davinci-003",
+            prompt: aiPrompt,
+            max_tokens: 150,
+        });
+
+        // Extract AI-generated content
+        const aiSuggestions = aiResponse.data.choices[0].text.trim().split("\n");
+
+        // Format AI response
+        const keywords = aiSuggestions[1]?.split(", ") || ["No keywords found"];
+        const locations = aiSuggestions[3]?.split(", ") || ["No locations found"];
+        const strategy = aiSuggestions.slice(5).join(" ") || "No strategy generated.";
+
+        res.json({
+            keywords,
+            locations,
+            strategy
+        });
+
+    } catch (error) {
+        console.error("Error generating AI SEO suggestions:", error);
+        res.status(500).json({ message: "Internal Server Error" });
     }
-}
-
-// Routes
-app.post('/api/register', async (req, res) => {
-    const { name, email, password, plan } = req.body;
-
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) return res.status(400).send('User already exists');
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({ name, email, password: hashedPassword, plan });
-    res.status(201).send({ message: 'User registered successfully' });
 });
-
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(400).send('Invalid email or password');
-
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(400).send('Invalid email or password');
-
-    const token = jwt.sign({ id: user.id, plan: user.plan }, JWT_SECRET);
-    res.send({ token, plan: user.plan });
-});
-
-app.get('/api/recommendations', authenticateToken, (req, res) => {
-    const recommendations = {
-        Free: ['Use free SEO tools', 'Focus on local SEO'],
-        Growth: ['Target long-tail keywords', 'Improve website speed'],
-        Premier: ['Custom SEO strategy', 'Backlink analysis']
-    };
-
-    res.send({ recommendations: recommendations[req.user.plan] });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
