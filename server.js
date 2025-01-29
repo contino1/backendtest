@@ -1,64 +1,83 @@
 const express = require("express");
-const cors = require("cors");
+const { Configuration, OpenAIApi } = require("openai");
 const bodyParser = require("body-parser");
-const { Configuration, OpenAIApi } = require("openai"); // Import OpenAI API
-const db = require("./database"); // Your database connection file
-const authMiddleware = require("./middleware/auth"); // Authentication middleware
+const cors = require("cors");
+
+require("dotenv").config(); // Load environment variables
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAIApi(new Configuration({
-    apiKey: process.env.OPENAI_API_KEY, // Add your OpenAI API Key in .env
-}));
+// Configure OpenAI
+const configuration = new Configuration({
+    apiKey: process.env.OPENAI_API_KEY, // Ensure your OpenAI key is set in Railway
+});
+const openai = new OpenAIApi(configuration);
 
-// API to generate AI-based SEO recommendations
-app.post("/api/generate-seo", authMiddleware, async (req, res) => {
+// Route to register a user (placeholder, assuming your existing logic handles this)
+app.post("/api/register", async (req, res) => {
+    try {
+        const { name, email, password, plan } = req.body;
+
+        // TODO: Add logic to save user to your database
+        res.status(200).json({ message: "User registered successfully!" });
+    } catch (error) {
+        console.error("Error registering user:", error.message);
+        res.status(500).json({ error: "Failed to register user" });
+    }
+});
+
+// Route to log in a user (placeholder, assuming your existing logic handles this)
+app.post("/api/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // TODO: Add logic to authenticate user and generate a token
+        const token = "mock-token"; // Replace with your token logic
+        res.status(200).json({ message: "Login successful", token, plan: "Free" });
+    } catch (error) {
+        console.error("Error logging in user:", error.message);
+        res.status(500).json({ error: "Failed to log in user" });
+    }
+});
+
+// Route to generate SEO recommendations
+app.post("/api/generate-seo", async (req, res) => {
     try {
         const { businessName, website, services, location } = req.body;
 
-        // Store the business profile in the database
-        await db.run(
-            "INSERT INTO users_profiles (user_id, businessName, website, services, location) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET businessName = excluded.businessName, website = excluded.website, services = excluded.services, location = excluded.location",
-            [req.user.id, businessName, website, services, location]
-        );
-
-        // Create an AI prompt for SEO keyword & strategy suggestions
-        const aiPrompt = `
+        // Construct the prompt for OpenAI
+        const prompt = `
             Business Name: ${businessName || "N/A"}
             Website: ${website || "N/A"}
             Services: ${services || "N/A"}
             Location: ${location || "N/A"}
 
-            Based on the above business information, generate:
-            - 5 target keywords for SEO
-            - 3 suggested locations for local SEO
-            - A brief SEO strategy to increase traffic and visibility.
+            Based on this information, generate:
+            1. Five SEO target keywords.
+            2. Three suggested local SEO locations.
+            3. A brief SEO strategy to improve traffic and visibility.
         `;
 
-        const aiResponse = await openai.createCompletion({
-            model: "text-davinci-003",
-            prompt: aiPrompt,
-            max_tokens: 150,
+        // Call OpenAI's API
+        const response = await openai.createChatCompletion({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
         });
 
-        // Extract AI-generated content
-        const aiSuggestions = aiResponse.data.choices[0].text.trim().split("\n");
+        const content = response.data.choices[0].message.content;
 
-        // Format AI response
-        const keywords = aiSuggestions[1]?.split(", ") || ["No keywords found"];
-        const locations = aiSuggestions[3]?.split(", ") || ["No locations found"];
-        const strategy = aiSuggestions.slice(5).join(" ") || "No strategy generated.";
-
-        res.json({
-            keywords,
-            locations,
-            strategy
-        });
-
+        res.json({ recommendations: content });
     } catch (error) {
-        console.error("Error generating AI SEO suggestions:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+        console.error("Error generating SEO suggestions:", error.message);
+        res.status(500).json({ error: "Failed to generate SEO suggestions" });
     }
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
