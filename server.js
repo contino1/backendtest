@@ -8,7 +8,7 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: 'https://elevateseo.netlify.app' }));
 
 // Environment variables
 const PORT = process.env.PORT || 3000;
@@ -31,10 +31,7 @@ app.post('/api/register', (req, res) => {
     const { email, password, fullName, plan } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
 
-    // Simulate user registration (replace with actual database operations)
     const user = { id: 1, email, fullName, plan };
-
-    // Generate JWT
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
     res.json({ message: 'Registration successful', token });
 });
@@ -44,7 +41,6 @@ app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
 
-    // Simulate user authentication (replace with actual database logic)
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ message: 'Login successful', token });
@@ -76,10 +72,8 @@ app.post('/api/profile', (req, res) => {
     const { businessName, website } = req.body;
     if (!businessName || !website) return res.status(400).json({ message: 'Business name and website are required' });
 
-    // Simulate profile save (replace with actual database logic)
     const profile = { id: 1, businessName, website };
     res.json({ message: 'Profile saved successfully', profile });
 });
 
-// Start the server
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
