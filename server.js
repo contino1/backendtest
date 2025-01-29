@@ -8,7 +8,22 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: 'https://elevateseo.netlify.app' }));
+
+// CORS Configuration with Debugging
+app.use(cors({
+    origin: (origin, callback) => {
+        console.log(`CORS request from origin: ${origin}`);
+        // Allow requests from your frontend
+        if (!origin || origin === 'https://elevateseo.netlify.app') {
+            callback(null, true);
+        } else {
+            console.log('Blocked by CORS:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+}));
 
 // Environment variables
 const PORT = process.env.PORT || 3000;
@@ -28,31 +43,49 @@ app.get('/api/status', (req, res) => res.json({ status: 'Server is running' }));
 
 // Register route
 app.post('/api/register', (req, res) => {
+    console.log('Register request received:', req.body);
+
     const { email, password, fullName, plan } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
+    if (!email || !password) {
+        console.log('Missing email or password');
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     const user = { id: 1, email, fullName, plan };
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    console.log('Registration successful:', { email });
     res.json({ message: 'Registration successful', token });
 });
 
-// Login route
+// Login route with debugging logs
 app.post('/api/login', (req, res) => {
+    console.log('Login request received:', req.body);
+
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
+    if (!email || !password) {
+        console.log('Missing email or password');
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
+        console.log('Login successful:', { email });
         res.json({ message: 'Login successful', token });
     } else {
+        console.log('Invalid credentials:', { email });
         res.status(401).json({ message: 'Invalid email or password' });
     }
 });
 
-// AI suggestion route
+// AI suggestion route with error handling
 app.post('/api/ai-suggestions', async (req, res) => {
+    console.log('AI suggestions request received:', req.body);
+
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+    if (!prompt) {
+        console.log('Prompt is missing');
+        return res.status(400).json({ message: 'Prompt is required' });
+    }
 
     try {
         const response = await openai.createCompletion({
@@ -60,6 +93,8 @@ app.post('/api/ai-suggestions', async (req, res) => {
             prompt,
             max_tokens: 100,
         });
+
+        console.log('AI response generated successfully');
         res.json({ suggestions: response.data.choices[0].text.trim() });
     } catch (error) {
         console.error('OpenAI API error:', error);
@@ -69,11 +104,18 @@ app.post('/api/ai-suggestions', async (req, res) => {
 
 // Profile route to save business information
 app.post('/api/profile', (req, res) => {
+    console.log('Profile save request received:', req.body);
+
     const { businessName, website } = req.body;
-    if (!businessName || !website) return res.status(400).json({ message: 'Business name and website are required' });
+    if (!businessName || !website) {
+        console.log('Missing business name or website');
+        return res.status(400).json({ message: 'Business name and website are required' });
+    }
 
     const profile = { id: 1, businessName, website };
+    console.log('Profile saved successfully:', profile);
     res.json({ message: 'Profile saved successfully', profile });
 });
 
+// Start the server
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
