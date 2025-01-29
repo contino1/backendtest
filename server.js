@@ -15,25 +15,16 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// Ensure critical environment variables are set
 if (!JWT_SECRET || !OPENAI_API_KEY) {
     console.error('Missing required environment variables. Please set JWT_SECRET and OPENAI_API_KEY.');
     process.exit(1);
 }
 
-// Configure OpenAI API
 const configuration = new Configuration({
     apiKey: OPENAI_API_KEY,
 });
 
 const openai = new OpenAIApi(configuration);
-
-// Log environment variables to verify
-console.log('Environment Variables:', {
-    JWT_SECRET: !!JWT_SECRET, // Log as boolean to avoid exposing the secret
-    OPENAI_API_KEY: !!OPENAI_API_KEY, // Same here
-    PORT,
-});
 
 // Test route for server status
 app.get('/api/status', (req, res) => {
@@ -44,16 +35,11 @@ app.get('/api/status', (req, res) => {
 app.post('/api/register', (req, res) => {
     const { email, password, fullName, plan } = req.body;
 
-    console.log('Register request received:', req.body);
-
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Mock user registration (replace with actual DB logic)
     const user = { id: 1, email, fullName, plan };
-
-    // Generate JWT
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
 
     res.json({ message: 'Registration successful', token });
@@ -63,28 +49,21 @@ app.post('/api/register', (req, res) => {
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
 
-    console.log('Login request received:', req.body);
-
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Mock user authentication (replace with actual DB logic)
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
-        console.log('Login successful for:', email);
         return res.json({ message: 'Login successful', token });
     }
 
-    console.log('Invalid credentials for:', email);
     res.status(401).json({ message: 'Invalid email or password' });
 });
 
 // AI suggestion route
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
-
-    console.log('AI suggestions request received:', req.body);
 
     if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
@@ -104,24 +83,44 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 });
 
-// Profile route to save business information
+// Profile routes
+let profile = { id: 1, businessName: 'Initial Name', website: 'https://initialwebsite.com' };
+
+// Save profile route
 app.post('/api/profile', (req, res) => {
     const { businessName, website } = req.body;
-
-    console.log('Profile save request received:', { businessName, website });
 
     if (!businessName || !website) {
         return res.status(400).json({ message: 'Business name and website are required' });
     }
 
-    // Mock database save operation (replace with actual DB logic)
-    const profile = { id: 1, businessName, website };
+    profile = { id: 1, businessName, website };
 
-    // Simulate success response
     res.json({ message: 'Profile saved successfully', profile });
 });
 
-// Start the server
+// Edit profile route
+app.put('/api/profile/edit', (req, res) => {
+    const { id, businessName, website } = req.body;
+
+    if (!id || !businessName || !website) {
+        return res.status(400).json({ message: 'ID, business name, and website are required' });
+    }
+
+    if (profile.id !== id) {
+        return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    profile = { id, businessName, website };
+
+    res.json({ message: 'Profile updated successfully', profile });
+});
+
+// Fetch profile route
+app.get('/api/profile', (req, res) => {
+    res.json({ profile });
+});
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
