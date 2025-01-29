@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const OpenAI = require('openai'); // Corrected OpenAI import
+const { OpenAI } = require('openai'); // Fixed OpenAI import
 
 const app = express();
 const PORT = process.env.PORT || 3000;
