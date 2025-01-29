@@ -28,6 +28,13 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration);
 
+// Log environment variables to verify
+console.log('Environment Variables:', {
+    JWT_SECRET: !!JWT_SECRET, // Log as boolean to avoid exposing the secret
+    OPENAI_API_KEY: !!OPENAI_API_KEY, // Same here
+    PORT,
+});
+
 // Test route for server status
 app.get('/api/status', (req, res) => {
     res.json({ status: 'Server is running' });
@@ -36,6 +43,8 @@ app.get('/api/status', (req, res) => {
 // Register route
 app.post('/api/register', (req, res) => {
     const { email, password, fullName, plan } = req.body;
+
+    console.log('Register request received:', req.body);
 
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
@@ -54,6 +63,8 @@ app.post('/api/register', (req, res) => {
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
 
+    console.log('Login request received:', req.body);
+
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
     }
@@ -61,15 +72,19 @@ app.post('/api/login', (req, res) => {
     // Mock user authentication (replace with actual DB logic)
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
+        console.log('Login successful for:', email);
         return res.json({ message: 'Login successful', token });
     }
 
+    console.log('Invalid credentials for:', email);
     res.status(401).json({ message: 'Invalid email or password' });
 });
 
 // AI suggestion route
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
+
+    console.log('AI suggestions request received:', req.body);
 
     if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
