@@ -25,7 +25,7 @@ if (!JWT_SECRET || !OPENAI_API_KEY) {
 const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
-let profileData = null;
+let profileData = {};
 
 // JWT Authentication Middleware
 function authenticateToken(req, res, next) {
@@ -49,12 +49,13 @@ app.get('/api/status', (req, res) => {
 // Login route
 app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body;
+    console.log('Login request received:', req.body);
 
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Dummy login credentials (Replace with your user authentication logic)
+    // Dummy login credentials (Replace with your actual authentication logic)
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ message: 'Login successful', token });
@@ -65,16 +66,19 @@ app.post('/api/auth/login', (req, res) => {
 
 // Profile routes
 app.get('/api/profile', authenticateToken, (req, res) => {
-    if (!profileData) {
+    console.log('Profile fetch request received for user:', req.user);
+
+    if (!profileData[req.user.id]) {
         return res.status(404).json({ message: 'Profile not found' });
     }
-    res.json(profileData);
+    res.json(profileData[req.user.id]);
 });
 
 app.post('/api/profile', authenticateToken, (req, res) => {
-    profileData = req.body;
-    console.log('Profile data saved:', profileData);
-    res.json({ message: 'Profile saved successfully', profile: profileData });
+    console.log('Profile data received:', req.body);
+
+    profileData[req.user.id] = req.body;
+    res.json({ message: 'Profile saved successfully', profile: profileData[req.user.id] });
 });
 
 // AI suggestions route
