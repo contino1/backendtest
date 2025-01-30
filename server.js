@@ -73,7 +73,7 @@ app.post('/api/profile', (req, res) => {
     res.json({ message: 'Profile saved successfully', profile: profileData });
 });
 
-// AI suggestions route
+// AI suggestions route with enhanced logging and debugging
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
     if (!prompt) {
@@ -81,14 +81,22 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 
     try {
+        console.log('Sending request to OpenAI with prompt:', prompt);
+
+        // Send the request to OpenAI
         const response = await openai.createCompletion({
             model: 'text-davinci-003',
-            prompt: `Generate a detailed SEO business plan and implementation guide based on this profile: ${prompt}`,
+            prompt: `Generate a detailed SEO business plan and implementation guide: ${prompt}`,
             max_tokens: 1000,
             temperature: 0.7,
             top_p: 1,
             n: 1,
         });
+
+        if (!response || !response.data.choices || !response.data.choices.length) {
+            console.error('Invalid response from OpenAI:', response);
+            return res.status(500).json({ message: 'OpenAI returned an empty response' });
+        }
 
         const generatedText = response.data.choices[0].text.trim();
         const [businessPlan, implementation] = generatedText.split("Implementation Instructions:");
@@ -98,10 +106,10 @@ app.post('/api/ai-suggestions', async (req, res) => {
             implementation: implementation?.trim() || "No implementation instructions generated."
         });
     } catch (error) {
-        console.error('OpenAI API error:', error);
+        console.error('OpenAI API error:', error.response ? error.response.data : error.message);
         res.status(500).json({
             message: 'Failed to generate suggestions',
-            debug: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            debug: process.env.NODE_ENV === 'development' ? error.response?.data || error.message : undefined,
         });
     }
 });
