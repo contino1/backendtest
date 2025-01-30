@@ -29,6 +29,7 @@ let profileData = null;
 
 // Status route for checking server health
 app.get('/api/status', (req, res) => {
+    console.log('Status check received.');
     res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
 });
 
@@ -73,7 +74,7 @@ app.post('/api/profile', (req, res) => {
     res.json({ message: 'Profile saved successfully', profile: profileData });
 });
 
-// AI suggestions route with improved logging and handling
+// AI suggestions route with improved logging and diagnostics
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
 
@@ -87,11 +88,14 @@ app.post('/api/ai-suggestions', async (req, res) => {
         // Send the request to OpenAI
         const response = await openai.createCompletion({
             model: 'text-davinci-003',
-            prompt: `Generate a detailed SEO business plan and implementation guide: ${prompt}`,
+            prompt,
             max_tokens: 1000,
             temperature: 0.7,
             top_p: 1,
         });
+
+        // Log the full response for debugging
+        console.log('OpenAI response:', response.data);
 
         if (!response.data.choices || !response.data.choices.length) {
             console.error('Empty response from OpenAI:', response.data);
@@ -108,9 +112,11 @@ app.post('/api/ai-suggestions', async (req, res) => {
 
     } catch (error) {
         console.error('OpenAI API error:', error.response ? error.response.data : error.message);
+
+        // Return detailed error information for diagnostics
         res.status(500).json({
             message: 'Failed to generate suggestions',
-            debug: process.env.NODE_ENV === 'development' ? error.response?.data || error.message : 'Internal Server Error',
+            debug: error.response?.data || error.message,
             statusCode: error.response?.status || 500
         });
     }
