@@ -1,10 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import { Configuration, OpenAIApi } from 'openai';
-
-dotenv.config();
 
 const app = express();
 app.use(express.json());
@@ -14,6 +11,7 @@ app.use(cors({
     credentials: true
 }));
 
+// Environment variables set in Railway
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -23,6 +21,7 @@ if (!JWT_SECRET || !OPENAI_API_KEY) {
     process.exit(1);
 }
 
+// Configure OpenAI API
 const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
@@ -30,7 +29,6 @@ let profileData = null;
 
 // Status route for checking server health
 app.get('/api/status', (req, res) => {
-    console.log('Status check received.');
     res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
 });
 
@@ -75,7 +73,7 @@ app.post('/api/profile', (req, res) => {
     res.json({ message: 'Profile saved successfully', profile: profileData });
 });
 
-// AI suggestions route with improved debugging
+// AI suggestions route with improved logging and handling
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
 
@@ -86,17 +84,18 @@ app.post('/api/ai-suggestions', async (req, res) => {
     try {
         console.log('Sending AI request with prompt:', prompt);
 
+        // Send the request to OpenAI
         const response = await openai.createCompletion({
             model: 'text-davinci-003',
             prompt: `Generate a detailed SEO business plan and implementation guide: ${prompt}`,
             max_tokens: 1000,
             temperature: 0.7,
             top_p: 1,
-            n: 1,
         });
 
         if (!response.data.choices || !response.data.choices.length) {
-            throw new Error('Empty response from OpenAI');
+            console.error('Empty response from OpenAI:', response.data);
+            return res.status(500).json({ message: 'OpenAI returned an empty response' });
         }
 
         const generatedText = response.data.choices[0].text.trim();
@@ -109,8 +108,6 @@ app.post('/api/ai-suggestions', async (req, res) => {
 
     } catch (error) {
         console.error('OpenAI API error:', error.response ? error.response.data : error.message);
-
-        // Return detailed error information for diagnostics
         res.status(500).json({
             message: 'Failed to generate suggestions',
             debug: process.env.NODE_ENV === 'development' ? error.response?.data || error.message : 'Internal Server Error',
