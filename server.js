@@ -20,15 +20,13 @@ if (!JWT_SECRET || !OPENAI_API_KEY) {
     process.exit(1);
 }
 
-// Configure OpenAI API
 const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
 let profileData = null;
 
-// Status route for health check
+// Health check route
 app.get('/api/status', (req, res) => {
-    console.log('Status check received.');
     res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
 });
 
@@ -37,17 +35,13 @@ app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-        console.error('Login error: Missing email or password.');
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Simulate login logic (replace with actual user authentication)
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
-        console.log('Login successful:', email);
         res.json({ message: 'Login successful', token });
     } else {
-        console.error('Invalid login attempt:', email);
         res.status(401).json({ message: 'Invalid email or password' });
     }
 });
@@ -62,10 +56,11 @@ app.get('/api/profile', (req, res) => {
 
 app.post('/api/profile', (req, res) => {
     profileData = req.body;
+    console.log('Profile data saved:', profileData);
     res.json({ message: 'Profile saved successfully', profile: profileData });
 });
 
-// AI suggestions route with improved logging and handling
+// AI suggestions route
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
 
@@ -74,8 +69,6 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 
     try {
-        console.log('Received AI request with prompt:', prompt);
-
         const response = await openai.createChatCompletion({
             model: 'gpt-3.5-turbo',
             messages: [
@@ -87,7 +80,6 @@ app.post('/api/ai-suggestions', async (req, res) => {
         });
 
         if (!response.data.choices || !response.data.choices.length) {
-            console.error('Empty response from OpenAI:', response.data);
             return res.status(500).json({ message: 'OpenAI returned an empty response' });
         }
 
@@ -101,7 +93,6 @@ app.post('/api/ai-suggestions', async (req, res) => {
 
     } catch (error) {
         console.error('OpenAI API error:', error.response?.data || error.message);
-
         res.status(500).json({
             message: 'Failed to generate suggestions',
             debug: error.response?.data || error.message,
@@ -110,9 +101,8 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 });
 
-// Catch-all route for invalid paths
+// Catch-all route
 app.all('*', (req, res) => {
-    console.warn(`Unhandled request to ${req.method} ${req.url}`);
     res.status(404).json({ message: 'Route not found' });
 });
 
