@@ -109,9 +109,12 @@ app.post('/api/ai-suggestions', async (req, res) => {
 
     } catch (error) {
         console.error('OpenAI API error:', error.response ? error.response.data : error.message);
+
+        // Return detailed error information for diagnostics
         res.status(500).json({
             message: 'Failed to generate suggestions',
-            debug: process.env.NODE_ENV === 'development' ? error.response?.data || error.message : undefined,
+            debug: process.env.NODE_ENV === 'development' ? error.response?.data || error.message : 'Internal Server Error',
+            statusCode: error.response?.status || 500
         });
     }
 });
