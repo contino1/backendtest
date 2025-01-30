@@ -26,6 +26,56 @@ if (!JWT_SECRET || !OPENAI_API_KEY) {
 const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
+let profileData = null;
+
+// Status route for checking server health
+app.get('/api/status', (req, res) => {
+    console.log('Status check received.');
+    res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
+});
+
+// Registration route
+app.post('/api/register', (req, res) => {
+    const { email, password, fullName, plan } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const user = { id: 1, email, fullName, plan };
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({ message: 'Registration successful', token });
+});
+
+// Login route
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    if (email === 'test@example.com' && password === 'password123') {
+        const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
+        res.json({ message: 'Login successful', token });
+    } else {
+        res.status(401).json({ message: 'Invalid email or password' });
+    }
+});
+
+// Profile routes
+app.get('/api/profile', (req, res) => {
+    if (!profileData) {
+        return res.status(404).json({ message: 'Profile not found' });
+    }
+    res.json(profileData);
+});
+
+app.post('/api/profile', (req, res) => {
+    profileData = req.body;
+    res.json({ message: 'Profile saved successfully', profile: profileData });
+});
+
+// AI suggestions route with improved debugging
 app.post('/api/ai-suggestions', async (req, res) => {
     const { prompt } = req.body;
 
@@ -34,26 +84,19 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 
     try {
-        console.log('Sending request to OpenAI...');
-
-        // Test a simple fallback prompt to validate API connection
-        const fallbackPrompt = 'Provide three SEO tips for a business website.';
-        const requestPrompt = prompt.trim() || fallbackPrompt;
+        console.log('Sending AI request with prompt:', prompt);
 
         const response = await openai.createCompletion({
             model: 'text-davinci-003',
-            prompt: `Generate a detailed SEO business plan and implementation guide:\n\n${requestPrompt}`,
+            prompt: `Generate a detailed SEO business plan and implementation guide: ${prompt}`,
             max_tokens: 1000,
             temperature: 0.7,
             top_p: 1,
             n: 1,
         });
 
-        console.log('OpenAI response:', response.data);
-
-        // Ensure response contains valid data
         if (!response.data.choices || !response.data.choices.length) {
-            throw new Error('Empty response from OpenAI API.');
+            throw new Error('Empty response from OpenAI');
         }
 
         const generatedText = response.data.choices[0].text.trim();
@@ -65,9 +108,7 @@ app.post('/api/ai-suggestions', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('OpenAI API error:', error.response?.data || error.message);
-
-        // Return detailed error message if available
+        console.error('OpenAI API error:', error.response ? error.response.data : error.message);
         res.status(500).json({
             message: 'Failed to generate suggestions',
             debug: process.env.NODE_ENV === 'development' ? error.response?.data || error.message : undefined,
@@ -75,4 +116,10 @@ app.post('/api/ai-suggestions', async (req, res) => {
     }
 });
 
+// Catch-all route for unhandled paths
+app.all('*', (req, res) => {
+    res.status(404).json({ message: 'Route not found' });
+});
+
+// Start the server
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
