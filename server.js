@@ -29,43 +29,33 @@ const openai = new OpenAIApi(configuration);
 // Mock profile data
 let profileData = null;
 
-// Test route for status check
+// Status check route
 app.get('/api/status', (req, res) => res.json({ status: 'Server is running' }));
 
-// Register route
+// Registration route
 app.post('/api/register', (req, res) => {
-    console.log('Register request received:', req.body);
-
     const { email, password, fullName, plan } = req.body;
     if (!email || !password) {
-        console.log('Missing email or password');
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Simulate user creation (replace with database logic later)
     const user = { id: 1, email, fullName, plan };
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
 
-    console.log('Registration successful:', { email });
     res.json({ message: 'Registration successful', token });
 });
 
 // Login route
 app.post('/api/login', (req, res) => {
-    console.log('Login request received:', req.body);
-
     const { email, password } = req.body;
     if (!email || !password) {
-        console.log('Missing email or password');
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
     if (email === 'test@example.com' && password === 'password123') {
         const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
-        console.log('Login successful:', { email });
         res.json({ message: 'Login successful', token });
     } else {
-        console.log('Invalid credentials:', { email });
         res.status(401).json({ message: 'Invalid email or password' });
     }
 });
@@ -83,19 +73,8 @@ app.post('/api/profile', (req, res) => {
     res.json({ message: 'Profile saved successfully', profile: profileData });
 });
 
-app.put('/api/profile', (req, res) => {
-    if (!profileData) {
-        return res.status(404).json({ message: 'Profile not found' });
-    }
-
-    profileData = { ...profileData, ...req.body };
-    res.json({ message: 'Profile updated successfully', profile: profileData });
-});
-
 // AI suggestions route
 app.post('/api/ai-suggestions', async (req, res) => {
-    console.log('AI suggestions request received:', req.body);
-
     const { prompt } = req.body;
     if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
@@ -104,22 +83,31 @@ app.post('/api/ai-suggestions', async (req, res) => {
     try {
         const response = await openai.createCompletion({
             model: 'text-davinci-003',
-            prompt,
-            max_tokens: 300,
+            prompt: `Generate a detailed SEO business plan and implementation guide based on this profile: ${prompt}`,
+            max_tokens: 1000,
+            temperature: 0.7,
+            top_p: 1,
+            n: 1,
         });
 
-        res.json({ suggestions: response.data.choices[0].text.trim() });
+        const generatedText = response.data.choices[0].text.trim();
+        const [businessPlan, implementation] = generatedText.split("Implementation Instructions:");
+
+        res.json({
+            businessPlan: businessPlan?.trim() || "No business plan generated.",
+            implementation: implementation?.trim() || "No implementation instructions generated."
+        });
     } catch (error) {
         console.error('OpenAI API error:', error);
-        res.status(500).json({ message: 'Failed to generate suggestions' });
+        res.status(500).json({
+            message: 'Failed to generate suggestions',
+            debug: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
     }
 });
 
-// Catch-all route for unhandled paths
-app.all('*', (req, res) => {
-    console.log(`Unhandled request to: ${req.method} ${req.url}`);
-    res.status(404).json({ message: 'Route not found' });
-});
+// Catch-all route
+app.all('*', (req, res) => res.status(404).json({ message: 'Route not found' }));
 
 // Start the server
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
