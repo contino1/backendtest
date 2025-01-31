@@ -1,9 +1,9 @@
+// Initialize Express app with enhanced CORS and debugging for profile save issues
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { Configuration, OpenAIApi } from 'openai';
 
-// Initialize Express app
 const app = express();
 app.use(express.json());
 
@@ -60,6 +60,26 @@ function authenticateToken(req, res, next) {
     });
 }
 
+// Profile routes with request logging
+app.get('/api/profile', authenticateToken, (req, res) => {
+    console.log('GET /api/profile request received for user:', req.user);
+
+    if (!profileData[req.user.id]) {
+        console.log('No profile found for user:', req.user.id);
+        return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    res.json(profileData[req.user.id]);
+});
+
+app.post('/api/profile', authenticateToken, (req, res) => {
+    console.log('POST /api/profile request received for user:', req.user);
+    console.log('Profile data received:', req.body);
+
+    profileData[req.user.id] = req.body;
+    res.json({ message: 'Profile saved successfully', profile: profileData[req.user.id] });
+});
+
 // Health check route
 app.get('/api/status', (req, res) => {
     res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
@@ -81,26 +101,6 @@ app.post('/api/auth/login', (req, res) => {
     } else {
         res.status(401).json({ message: 'Invalid email or password' });
     }
-});
-
-// Profile routes with request logging
-app.get('/api/profile', authenticateToken, (req, res) => {
-    console.log('GET /api/profile request received for user:', req.user);
-
-    if (!profileData[req.user.id]) {
-        console.log('No profile found for user:', req.user.id);
-        return res.status(404).json({ message: 'Profile not found' });
-    }
-
-    res.json(profileData[req.user.id]);
-});
-
-app.post('/api/profile', authenticateToken, (req, res) => {
-    console.log('POST /api/profile request received for user:', req.user);
-    console.log('Profile data received:', req.body);
-
-    profileData[req.user.id] = req.body;
-    res.json({ message: 'Profile saved successfully', profile: profileData[req.user.id] });
 });
 
 // AI suggestions route with logging
