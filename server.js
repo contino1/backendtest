@@ -57,6 +57,26 @@ function authenticateToken(req, res, next) {
     });
 }
 
+// Refresh token endpoint
+app.post('/api/auth/refresh', (req, res) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) {
+        return res.status(401).json({ message: 'Authorization header missing' });
+    }
+
+    const expiredToken = authHeader.split(' ')[1];
+    jwt.verify(expiredToken, JWT_SECRET, { ignoreExpiration: true }, (err, user) => {
+        if (err) {
+            console.error('Failed to decode expired token:', err.message);
+            return res.status(403).json({ message: 'Invalid token' });
+        }
+
+        // Issue a new token
+        const newToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ message: 'Token refreshed successfully', token: newToken });
+    });
+});
+
 // API endpoints
 app.get('/api/profile', authenticateToken, (req, res) => {
     console.log('GET /api/profile request received for user:', req.user);
