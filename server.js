@@ -27,7 +27,7 @@ const openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_API_KEY }));
 
 let profileData = {};
 
-// Authenticate token middleware with enhanced logging and debugging
+// Authenticate token middleware with enhanced error handling
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     if (!authHeader) {
@@ -43,6 +43,10 @@ function authenticateToken(req, res, next) {
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) {
+            if (err.name === 'TokenExpiredError') {
+                console.error('Token expired:', err.message);
+                return res.status(401).json({ message: 'Token expired', error: err.message });
+            }
             console.error('Token verification failed:', err.message);
             return res.status(403).json({ message: 'Token verification failed', error: err.message });
         }
@@ -73,7 +77,7 @@ app.post('/api/auth/login', (req, res) => {
     console.log('POST /api/auth/login request received with email:', email);
 
     if (email === 'test@example.com' && password === 'password123') {
-        const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '24h' });
+        const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '7d' });  // Extended token expiration to 7 days
         res.json({ message: 'Login successful', token });
     } else {
         res.status(401).json({ message: 'Invalid email or password' });
