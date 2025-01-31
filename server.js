@@ -76,7 +76,20 @@ app.post('/api/profile', authenticateToken, (req, res) => {
     console.log('POST /api/profile request received for user:', req.user);
     console.log('Profile data received:', req.body);
 
-    profileData[req.user.id] = req.body;
+    // Save comprehensive SEO profile data
+    profileData[req.user.id] = {
+        businessName: req.body.businessName,
+        websiteURL: req.body.websiteURL,
+        businessType: req.body.businessType,
+        targetAudience: req.body.targetAudience,
+        mainKeywords: req.body.mainKeywords,
+        geographicTarget: req.body.geographicTarget,
+        competitorAnalysis: req.body.competitorAnalysis,
+        marketingGoals: req.body.marketingGoals,
+        currentSEOtools: req.body.currentSEOtools,
+        budget: req.body.budget
+    };
+
     res.json({ message: 'Profile saved successfully', profile: profileData[req.user.id] });
 });
 
@@ -96,7 +109,7 @@ app.post('/api/auth/login', (req, res) => {
 
     // Dummy login credentials (replace with your actual authentication logic)
     if (email === 'test@example.com' && password === 'password123') {
-        const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: 1, email }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ message: 'Login successful', token });
     } else {
         res.status(401).json({ message: 'Invalid email or password' });
