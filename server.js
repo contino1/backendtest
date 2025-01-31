@@ -64,26 +64,30 @@ app.post('/api/auth/login', (req, res) => {
     }
 });
 
-// Profile routes
+// Profile routes with logging for debugging
 app.get('/api/profile', authenticateToken, (req, res) => {
-    console.log('Profile fetch request received for user:', req.user);
+    console.log('GET /api/profile request received for user:', req.user);
 
     if (!profileData[req.user.id]) {
+        console.log('No profile found for user:', req.user.id);
         return res.status(404).json({ message: 'Profile not found' });
     }
+
     res.json(profileData[req.user.id]);
 });
 
 app.post('/api/profile', authenticateToken, (req, res) => {
+    console.log('POST /api/profile request received for user:', req.user);
     console.log('Profile data received:', req.body);
 
     profileData[req.user.id] = req.body;
     res.json({ message: 'Profile saved successfully', profile: profileData[req.user.id] });
 });
 
-// AI suggestions route
+// AI suggestions route with logging
 app.post('/api/ai-suggestions', authenticateToken, async (req, res) => {
     const { prompt } = req.body;
+    console.log('POST /api/ai-suggestions request received with prompt:', prompt);
 
     if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
@@ -124,6 +128,7 @@ app.post('/api/ai-suggestions', authenticateToken, async (req, res) => {
 
 // Catch-all route for undefined routes
 app.all('*', (req, res) => {
+    console.log('Undefined route accessed:', req.method, req.path);
     res.status(404).json({ message: 'Route not found' });
 });
 
